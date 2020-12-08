@@ -40,10 +40,13 @@ public class ProjectExtractionTask implements Runnable {
         String projectName = projectDir.getName();
         File graphFile = outPath.resolve(projectName + ".graph").toFile();
         File vocabFile = outPath.resolve(projectName + ".vocab").toFile();
+        File targetFile = outPath.resolve(projectName + ".target").toFile();
 
-        WordHistogram hist = new WordHistogram();
+        WordHistogram vocabHist = new WordHistogram();
+        WordHistogram targetHist = new WordHistogram();
         try (FileWriter gw = new FileWriter(graphFile);
-             FileWriter vw = new FileWriter(vocabFile)) {
+             FileWriter vw = new FileWriter(vocabFile);
+             FileWriter tw = new FileWriter(targetFile)) {
             Files.walk(projectDir.toPath())
                     .filter(path -> path.toString().endsWith(".java"))
                     .filter(path -> !path.getFileName().toString().contains("Test"))
@@ -61,14 +64,16 @@ public class ProjectExtractionTask implements Runnable {
                         g.getVertices().stream()
                                 .map(Graph.Vertex::getLabel)
                                 .flatMap(s -> Stream.of(s.split("\\|")))
-                                .forEach(hist::count);
+                                .forEach(vocabHist::count);
+                        targetHist.count(g.getName());
                         try {
                             gw.write(g.toString() + "\n\n");
                         } catch (IOException e) {
                             throw new UncheckedIOException(e);
                         }
                     });
-            vw.write(hist.toString());
+            vw.write(vocabHist.toString());
+            tw.write(targetHist.toString());
             logger.info("complete preprocessing " + projectDir);
         } catch (Exception e) {
             logger.log(Level.SEVERE, "failed to process project: " + projectDir, e);

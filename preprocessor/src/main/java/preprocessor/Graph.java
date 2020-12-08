@@ -51,6 +51,10 @@ public class Graph {
         return vertices;
     }
 
+    public String getName() {
+        return name;
+    }
+
     @Override
     public String toString() {
         StringJoiner joiner = new StringJoiner("\n");
