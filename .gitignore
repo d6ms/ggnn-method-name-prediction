@@ -1,0 +1,14 @@
+ggnn.pytorch
+
+data
+logs
+models
+__pycache__
+
+preprocessor/.idea
+preprocessor/dependency-reduced-pom.xml
+preprocessor/logs
+preprocessor/output
+preprocessor/test
+preprocessor/target
+preprocessor/preprocessor.iml
