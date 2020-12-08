@@ -4,7 +4,6 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 public class Graph {
 
@@ -44,13 +43,24 @@ public class Graph {
         return data;
     }
 
+    public int getNumVertices() {
+        return vertices.size();
+    }
+
+    public List<Vertex> getVertices() {
+        return vertices;
+    }
+
     @Override
     public String toString() {
         StringJoiner joiner = new StringJoiner("\n");
         joiner.add(name + " " + vertices.size());
-        for (int i = 0; i < vertices.size(); i++) {
-            joiner.add(i + " " + vertices.get(i).getLabel());
-        }
+
+        String labels = vertices.stream()
+                .map(Vertex::getLabel)
+                .collect(Collectors.joining(" "));
+        joiner.add(labels);
+
         List<List<Integer>> mat = getAdjacencyMatrix();
         for (int i = 0; i < vertices.size(); i++) {
             String row = mat.get(i).stream()
@@ -58,6 +68,7 @@ public class Graph {
                     .collect(Collectors.joining(" "));
             joiner.add(row);
         }
+
         return joiner.toString();
     }
 

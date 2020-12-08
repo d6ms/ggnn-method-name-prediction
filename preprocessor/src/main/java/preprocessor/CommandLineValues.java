@@ -30,6 +30,9 @@ public class CommandLineValues {
     @Option(name = "--num_workers", required = false)
     public int numWorkers = 1;
 
+    @Option(name = "--max_vertices", required = false)
+    public int maxVertices = 500;
+
     @Option(name = "--exclude_boilerplates", required = false)
     public boolean excludeBoilerplates = false;
 
