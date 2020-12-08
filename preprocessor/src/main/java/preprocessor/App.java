@@ -29,6 +29,9 @@ public class App {
         } else if (opt.project != null) {
             ProjectExtractionTask task = new ProjectExtractionTask(opt.project.toFile(), opt.outputDir, cfg);
             task.run();
+        } else if (opt.dataset != null) {
+            DatasetExtractionTask task = new DatasetExtractionTask(opt.dataset, opt.outputDir, opt.numWorkers, cfg, opt.logDir);
+            task.run();
         }
     }
 
