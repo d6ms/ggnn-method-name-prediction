@@ -68,15 +68,22 @@ class GraphDataloader(object):
         if len(self.chunks) == 0:
             self.__load_chunks()
         return self.chunks.popleft()
+
+    def __pad(self, arr, length):
+        if len(arr) >= length:
+            return arr[:length]
+        else:
+            return arr + ['<pad>'] * (length - len(arr))
     
     def __load_chunks(self):
         samples = []
         for _ in range(cfg.BATCH_SIZE * cfg.CHUNK_SIZE):
             target, num_vertices, vertices, edges = self.data.__next__()
             am = self.__create_adjacency_matrix(edges)
+            vertices = [self.__pad(v.split('|'), cfg.MAX_WORD_PARTS) for v in vertices]
             if len(vertices) < cfg.MAX_VERTICES:
-                vertices += ['<PAD>'] * (cfg.MAX_VERTICES - len(vertices))
-            vertices = [self.word_vocab.lookup_idx(v) for v in vertices]
+                vertices += [['<pad>'] * cfg.MAX_WORD_PARTS] * (cfg.MAX_VERTICES - len(vertices))
+            vertices = [[self.word_vocab.lookup_idx(subword) for subword in word] for word in vertices]
             target = self.target_vocab.lookup_idx(target)
             samples.append((am, vertices, target))
         

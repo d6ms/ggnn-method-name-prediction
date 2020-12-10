@@ -5,6 +5,7 @@ import numpy as np
 import torch
 
 from data import Vocabulary, GraphDataloader
+from models import CodeGGNN
 
 
 def fix_seeds(seed=0):
@@ -27,6 +28,9 @@ if __name__ == '__main__':
         target_vocab = Vocabulary([line.split()[0] for line in f.readlines()])
 
     dataloader = GraphDataloader(graph_path, word_vocab, target_vocab)
+    model = CodeGGNN(len(word_vocab), 128)
     for am, vertices, target in dataloader:
-        pass
+        y = model(am, vertices)
+        print(y)
+        exit()
 
