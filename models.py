@@ -129,19 +129,21 @@ class GGNN(nn.Module):
             prop_state = self.propogator(in_states, out_states, prop_state, A)
 
         # Graph level output
-        soft_attention_ouput = self.soft_attention(prop_state)
-        # Element wise hadamard product to get the graph representation, check Equation 7 in GGNN paper for more details
-        output = torch.mul(prop_state,soft_attention_ouput)
+        aw = self.soft_attention(prop_state)
+        # aw: (batch_size, n_vertices, 1)
+        # TODO print(aw) 何故か全ての要素が 0.5 になるけど…
+        output = torch.mul(prop_state, aw)
         output = output.sum(1)
         return output
 
 
 class CodeGGNN(nn.Module):
 
-    def __init__(self, word_vocab_size, embedding_dim):
+    def __init__(self, word_vocab_size, target_vocab_size, embedding_dim):
         super(CodeGGNN, self).__init__()
         self.embedding = nn.Embedding(word_vocab_size, embedding_dim)
-        self.ggnn = GGNN(embedding_dim)  # TODO
+        self.ggnn = GGNN(embedding_dim)
+        self.out = nn.Linear(embedding_dim, target_vocab_size)
     
     def forward(self, am, vertices):
         # am: (batch_size, n_vertices, n_vertices * 2)
@@ -155,5 +157,7 @@ class CodeGGNN(nn.Module):
         x = torch.mean(x, dim=2)
         # x: (batch_size, n_vertices, embedding_dim)
 
-        h_g = self.ggnn(x, am)
-        return h_g
+        h_g = self.ggnn(x, am)  # h_g: (batch_size, embedding_dim)
+
+        output = self.out(h_g)  # output: (batch_size, target_vocab_size)
+        return output

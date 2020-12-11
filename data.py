@@ -71,7 +71,7 @@ class GraphDataloader(object):
 
     def __pad(self, arr, length):
         if len(arr) >= length:
-            return arr[:length]
+            return random.sample(arr, length)
         else:
             return arr + ['<pad>'] * (length - len(arr))
     
@@ -79,6 +79,7 @@ class GraphDataloader(object):
         samples = []
         for _ in range(cfg.BATCH_SIZE * cfg.CHUNK_SIZE):
             target, num_vertices, vertices, edges = self.data.__next__()
+            # TODO num_vertices が config の値を超えていた時の処理
             am = self.__create_adjacency_matrix(edges)
             vertices = [self.__pad(v.split('|'), cfg.MAX_WORD_PARTS) for v in vertices]
             if len(vertices) < cfg.MAX_VERTICES:
