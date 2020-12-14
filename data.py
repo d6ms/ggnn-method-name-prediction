@@ -55,13 +55,14 @@ class GraphDataloader(object):
         with open(self.data_path, mode='r') as f:
             while True:
                 head = f.readline()
-                if not head:
+                while head == '\n':
+                    head = f.readline()
+                if head == '':  # EOF
                     break
                 method_name, num_vertices = head.rstrip().split()
                 num_vertices = int(num_vertices)
                 vertices = f.readline().rstrip().split()
                 edges = [list(map(int, f.readline().rstrip().split())) for _ in range(num_vertices)]
-                f.readline()
                 yield method_name, num_vertices, vertices, edges
 
     def __next_batch_samples(self):
