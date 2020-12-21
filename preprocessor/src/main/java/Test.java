@@ -1,5 +1,6 @@
 class Test {
-    void fooBar() {
-        System.out.println("http://github.com");
+    void fooBar(int x) {
+        String testValue = "http://github.com";
+        System.out.println(testValue);
     }
 }

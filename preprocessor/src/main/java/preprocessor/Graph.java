@@ -1,5 +1,7 @@
 package preprocessor;
 
+import com.github.javaparser.JavaToken;
+import com.github.javaparser.Range;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
@@ -9,21 +11,26 @@ public class Graph {
 
     private final String name;
     private final List<Vertex> vertices;
-    private final Map<Integer, Set<Integer>> adj = new HashMap<>();
+    private final Map<Integer, Set<Pair<Integer, Integer>>> adj = new HashMap<>();  // {src: (dst, type)}
 
-    public Graph(String name, List<Vertex> vertices, List<Pair<Integer, Integer>> edges) {
+    public Graph(String name, List<Vertex> vertices, List<Edge> edges) {
         this.name = name;
         this.vertices = vertices;
-        for (Pair<Integer, Integer> edge : edges) {
-            addEdge(edge.getLeft(), edge.getRight());
+        for (int i = 0; i < vertices.size(); i++) {
+            vertices.get(i).index = i;
+        }
+        for (Edge edge : edges) {
+            addEdge(edge);
         }
     }
 
-    public void addEdge(int src, int dst) {
+    public void addEdge(Edge edge) {
+        int src = edge.src.index;
+        int dst = edge.dst.index;
         if (!adj.containsKey(src)) {
             adj.put(src, new HashSet<>());
         }
-        adj.get(src).add(dst);
+        adj.get(src).add(Pair.of(dst, edge.type.value));
     }
 
     public List<List<Integer>> getAdjacencyMatrix() {
@@ -34,8 +41,10 @@ public class Graph {
                 row.add(0);
             }
             if (adj.containsKey(i)) {
-                for (Integer dst : adj.get(i)) {
-                    row.set(dst, 1); // edge type 1 で接続
+                for (Pair<Integer, Integer> lnk : adj.get(i)) {
+                    int dst = lnk.getLeft();
+                    int type = lnk.getRight();
+                    row.set(dst, type);
                 }
             }
             data.add(row);
@@ -78,13 +87,43 @@ public class Graph {
 
     public static class Vertex {
         private final String label;
+        private final Range range;  // ソースコード中の出現位置, AST 要素の場合は null
+        private int index;
 
-        public Vertex(String label) {
+        public Vertex(String label, Range range) {
             this.label = label;
+            this.range = range;
         }
 
         public String getLabel() {
             return label;
         }
+
+        public Range getRange() {
+            return range;
+        }
+    }
+
+    public static class Edge {
+        private final Vertex src;
+        private final Vertex dst;
+        private final EdgeType type;
+        public Edge(Vertex src, Vertex dst, EdgeType type) {
+            this.src = src;
+            this.dst = dst;
+            this.type = type;
+        }
+    }
+
+    public enum EdgeType {
+        CHILD(1),
+        NEXT_TOKEN(2);
+
+        int value;
+
+        EdgeType(int value) {
+            this.value = value;
+        }
+
     }
 }
