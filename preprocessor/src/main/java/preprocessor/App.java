@@ -21,7 +21,7 @@ public class App {
             try {
                 List<Graph> graphs = task.call();
                 for (Graph graph : graphs) {
-                    System.out.println(graph);
+                    System.out.println(GraphPrinter.print(graph));
                 }
             } catch (Exception e) {
                 e.printStackTrace();

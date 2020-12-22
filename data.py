@@ -60,10 +60,10 @@ class GraphDataloader(object):
                 if head == '':
                     break
                 try:
-                    method_name, num_vertices = head.rstrip().split()
-                    num_vertices = int(num_vertices)
+                    method_name, num_vertices, num_edges = head.rstrip().split()
+                    num_vertices, num_edges = int(num_vertices), int(num_edges)
                     vertices = f.readline().rstrip().split()
-                    edges = [list(map(int, f.readline().rstrip().split())) for _ in range(num_vertices)]
+                    edges = [tuple(map(int, f.readline().rstrip().split())) for _ in range(num_edges)]
                     yield method_name, num_vertices, vertices, edges
                 except:
                     head = f.readline()
@@ -108,9 +108,7 @@ class GraphDataloader(object):
     def __create_adjacency_matrix(self, edges):
         n_nodes, n_edge_types = cfg.MAX_VERTICES, cfg.MAX_EDGE_TYPES
         a = np.zeros([n_nodes, n_nodes * n_edge_types * 2])
-        for src_idx, row in enumerate(edges):
-            for tgt_idx, e_type in enumerate(row):
-                if e_type == 1:
-                    a[tgt_idx][(e_type - 1) * n_nodes + src_idx] = 1
-                    a[src_idx][(e_type - 1 + n_edge_types) * n_nodes + tgt_idx] = 1
+        for src_idx, tgt_idx, e_type in edges:
+            a[tgt_idx][(e_type - 1) * n_nodes + src_idx] = 1
+            a[src_idx][(e_type - 1 + n_edge_types) * n_nodes + tgt_idx] = 1
         return a

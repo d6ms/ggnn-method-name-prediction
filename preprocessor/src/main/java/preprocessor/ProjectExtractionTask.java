@@ -67,7 +67,7 @@ public class ProjectExtractionTask implements Runnable {
                                 .forEach(vocabHist::count);
                         targetHist.count(g.getName());
                         try {
-                            gw.write(g.toString() + "\n\n");
+                            gw.write(GraphPrinter.print(g) + "\n\n");
                         } catch (IOException e) {
                             throw new UncheckedIOException(e);
                         }

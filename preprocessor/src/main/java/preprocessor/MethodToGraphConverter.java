@@ -84,7 +84,9 @@ public class MethodToGraphConverter {
         List<JavaToken> rawTokens = new ArrayList<>();
         methodBody.getTokenRange().ifPresent(tr -> {
             for (JavaToken token : tr) {
-                if (token.getText().strip().equals("")) {
+                if (token.getText().strip().equals("")
+                        || token.getText().strip().startsWith("//")
+                        || token.getText().strip().startsWith("/*")) {
                     token.deleteToken();
                 } else if (token.getRange().isPresent()) {
                     rawTokens.add(token);

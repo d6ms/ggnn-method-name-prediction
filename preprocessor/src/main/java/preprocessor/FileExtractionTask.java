@@ -37,6 +37,7 @@ public class FileExtractionTask implements Callable<List<Graph>> {
     public List<Graph> call() throws Exception {
         CompilationUnit cu = StaticJavaParser.parse(path);
         return cu.findAll(MethodDeclaration.class).stream()
+                .filter(m -> m.getBody().isPresent())
                 .filter(m -> !(cfg.excludeBoilerplates && isBoilerplate(m)))
                 .map(MethodToGraphConverter::convert)
                 .filter(g -> g.getNumVertices() <= cfg.maxVertices)
