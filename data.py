@@ -37,7 +37,7 @@ class GraphDataloader(object):
         self.target_vocab = target_vocab
         self.chunks = deque()
         with open(data_path, mode='r') as f:
-            self.n_data = sum(1 for _ in f)
+            self.n_data = sum(1 for line in f if line == '\n')
 
     def __len__(self):
         return self.n_data // cfg.BATCH_SIZE
@@ -57,13 +57,18 @@ class GraphDataloader(object):
                 head = f.readline()
                 while head == '\n':
                     head = f.readline()
-                if head == '':  # EOF
+                if head == '':
                     break
-                method_name, num_vertices = head.rstrip().split()
-                num_vertices = int(num_vertices)
-                vertices = f.readline().rstrip().split()
-                edges = [list(map(int, f.readline().rstrip().split())) for _ in range(num_vertices)]
-                yield method_name, num_vertices, vertices, edges
+                try:
+                    method_name, num_vertices = head.rstrip().split()
+                    num_vertices = int(num_vertices)
+                    vertices = f.readline().rstrip().split()
+                    edges = [list(map(int, f.readline().rstrip().split())) for _ in range(num_vertices)]
+                    yield method_name, num_vertices, vertices, edges
+                except:
+                    head = f.readline()
+                    while head != '\n':
+                        head = f.readline()
 
     def __next_batch_samples(self):
         if len(self.chunks) == 0:
