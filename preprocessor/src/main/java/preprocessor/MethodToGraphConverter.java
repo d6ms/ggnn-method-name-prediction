@@ -12,6 +12,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static preprocessor.Graph.Vertex;
+import static preprocessor.Graph.VertexType;
 import static preprocessor.Graph.Edge;
 
 public class MethodToGraphConverter {
@@ -48,21 +49,23 @@ public class MethodToGraphConverter {
 
             // 現在の対象ノードを Vertex オブジェクトに変換
             String label;
-            JavaToken token = null;
+            Range range = null;
+            VertexType type = null;
             if (node.getChildNodes().isEmpty()) {
                 label = NodeLabelUtil.splitToSubtokens(node.toString());
-                TokenRange range = node.getTokenRange().get();
-                assert range.getBegin().equals(range.getEnd());
-                token = range.getBegin();
+                TokenRange tr = node.getTokenRange().get();
+                assert tr.getBegin().equals(tr.getEnd());
+                range = tr.getBegin().getRange().orElse(null);
+                type = VertexType.SYNTAX_TOKEN;
             } else {
                 label = NodeLabelUtil.shortenNodeName(node.getClass().getSimpleName());
+                range = node.getTokenRange().flatMap(TokenRange::toRange).orElse(null);
+                type = VertexType.SYNTAX_NODE;
             }
-            Range range = token != null ? token.getRange().orElse(null) : null;
-            Vertex vertex = new Vertex(label, range);
+            Vertex vertex = new Vertex(label, range, type);
             vertices.add(vertex);
-            
+
             // AST の親子関係に辺を張る
-            // TODO MethodCall の . みたいなトークンにも Child の辺を張る
             if (parent != null) {
                 edges.add(new Edge(parent, vertex, Graph.EdgeType.CHILD));
             }
@@ -91,17 +94,19 @@ public class MethodToGraphConverter {
 
         // AST に含まれているトークンを示す Vertex オブジェクトを抽出
         Map<Range, Vertex> astTokens = vertices.stream()
-                .filter(v -> v.getRange() != null)
+                .filter(v -> v.getType() == VertexType.SYNTAX_TOKEN)
                 .collect(Collectors.toMap(Vertex::getRange, v -> v));
 
         // 全トークンの Vertex オブジェクトを作り、ソースコード中の出現順に並べる
         List<Vertex> tokenSequence = new ArrayList<>();
+        List<Vertex> addedVertices = new ArrayList<>();
         for (JavaToken rawToken : rawTokens) {
             Range range = rawToken.getRange().get();
             Vertex vertex;
             if (astTokens.get(range) == null) {
-                vertex = new Vertex(rawToken.getText(), rawToken.getRange().orElse(null));
+                vertex = new Vertex(rawToken.getText(), rawToken.getRange().orElse(null), VertexType.SYNTAX_TOKEN);
                 vertices.add(vertex);
+                addedVertices.add(vertex);
             } else {
                 vertex = astTokens.get(range);
             }
@@ -113,6 +118,26 @@ public class MethodToGraphConverter {
             Vertex src = tokenSequence.get(i);
             Vertex dst = tokenSequence.get(i + 1);
             edges.add(new Edge(src, dst, Graph.EdgeType.NEXT_TOKEN));
+        }
+
+        // Child の辺を張る
+        for (Vertex addedVertex : addedVertices) {
+            // parent = addedVertex の出現位置を含む最小範囲の syntax_node
+            // TODO この実装は O(|V|^2) なので高速化の余地あり
+            Vertex parent = null;
+            for (Vertex vertex : vertices) {
+                if (vertex.getType() == VertexType.SYNTAX_TOKEN || vertex.getRange() == null || vertex.equals(parent)) {
+                    continue;
+                }
+                if (vertex.getRange().contains(addedVertex.getRange())) {
+                    if (parent == null || parent.getRange().contains(vertex.getRange())) {
+                        parent = vertex;
+                    }
+                }
+            }
+            if (parent != null) {
+                edges.add(new Edge(parent, addedVertex, Graph.EdgeType.CHILD));
+            }
         }
     }
 }

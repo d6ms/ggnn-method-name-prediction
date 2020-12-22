@@ -25,6 +25,7 @@ public class Graph {
     }
 
     public void addEdge(Edge edge) {
+        System.out.println(edge.src.label + " to " + edge.dst.label + " as " + edge.type);
         int src = edge.src.index;
         int dst = edge.dst.index;
         if (!adj.containsKey(src)) {
@@ -88,11 +89,13 @@ public class Graph {
     public static class Vertex {
         private final String label;
         private final Range range;  // ソースコード中の出現位置, AST 要素の場合は null
+        private final VertexType type;
         private int index;
 
-        public Vertex(String label, Range range) {
+        public Vertex(String label, Range range, VertexType type) {
             this.label = label;
             this.range = range;
+            this.type = type;
         }
 
         public String getLabel() {
@@ -102,6 +105,15 @@ public class Graph {
         public Range getRange() {
             return range;
         }
+
+        public VertexType getType() {
+            return type;
+        }
+    }
+
+    public enum VertexType {
+        SYNTAX_NODE,
+        SYNTAX_TOKEN;
     }
 
     public static class Edge {
