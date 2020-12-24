@@ -11,7 +11,7 @@ from models import CodeGGNN
 from data import GraphDataloader, Vocabulary
 
 
-def train(epochs, lr=0.001):
+def train(epochs, lr=0.00025):
     logging.info(f'start training on {cfg.DEVICE}')
 
     with open(f'{cfg.DATA_PATH}/vocabulary.pkl', 'rb') as f:

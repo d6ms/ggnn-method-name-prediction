@@ -6,6 +6,7 @@ import com.github.javaparser.TokenRange;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.stmt.BlockStmt;
+import com.github.javaparser.ast.type.UnknownType;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
@@ -46,6 +47,10 @@ public class MethodToGraphConverter {
             Pair<Node, Vertex> e = st.pop();
             Node node = e.getKey();
             Vertex parent = e.getValue();
+
+            if (node.getClass().isAssignableFrom(UnknownType.class)) {
+                continue;
+            }
 
             // 現在の対象ノードを Vertex オブジェクトに変換
             String label;
