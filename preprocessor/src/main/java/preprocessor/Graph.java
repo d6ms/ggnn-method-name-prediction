@@ -36,15 +36,21 @@ public class Graph {
     }
 
     public static class Vertex {
+        private final int id;
         private final String label;
         private final Range range;
         private final VertexType type;
         private int index;
 
-        public Vertex(String label, Range range, VertexType type) {
+        public Vertex(int id, String label, Range range, VertexType type) {
+            this.id = id;
             this.label = label;
             this.range = range;
             this.type = type;
+        }
+
+        public int getId() {
+            return id;
         }
 
         public String getLabel() {
@@ -65,6 +71,23 @@ public class Graph {
 
         public void setIndex(int index) {
             this.index = index;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Vertex vertex = (Vertex) o;
+            return id == vertex.id &&
+                    index == vertex.index &&
+                    Objects.equals(label, vertex.label) &&
+                    Objects.equals(range, vertex.range) &&
+                    type == vertex.type;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(id, label, range, type, index);
         }
     }
 
@@ -94,11 +117,29 @@ public class Graph {
         public EdgeType getType() {
             return type;
         }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Edge edge = (Edge) o;
+            return Objects.equals(src, edge.src) &&
+                    Objects.equals(dst, edge.dst) &&
+                    type == edge.type;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(src, dst, type);
+        }
     }
 
     public enum EdgeType {
         CHILD(1),
-        NEXT_TOKEN(2);
+        NEXT_TOKEN(2),
+        LAST_USE(3),
+        LAST_WRITE(4),
+        COMPUTED_FROM(5);
 
         int value;
 

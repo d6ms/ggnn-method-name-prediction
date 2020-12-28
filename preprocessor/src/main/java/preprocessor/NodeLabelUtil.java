@@ -122,7 +122,8 @@ public class NodeLabelUtil {
 
     public static String splitToSubtokens(String str) {
         str = str.replace("|", " ").trim();
-        return Stream.of(str.split("(?<=[a-z])(?=[A-Z])|_|[0-9]|(?<=[A-Z])(?=[A-Z][a-z])|\\s+"))
+        return Stream.of(str.split("(?<=[a-z])(?=[A-Z])|_|(?<=[A-Z])(?=[A-Z][a-z])|\\s+"))
+                .flatMap(s -> Stream.of(s.split("((?<=([a-z]|[A-Z]|_))(?=[0-9]))|((?<=([0-9]))(?=([a-z]|[A-Z]|_)))")))
                 .filter(s -> s.length() > 0).map(s -> normalizeName(s, ""))
                 .filter(s -> s.length() > 0).collect(Collectors.joining("|"));
     }

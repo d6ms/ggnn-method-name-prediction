@@ -3,6 +3,7 @@ package preprocessor;
 import com.github.javaparser.JavaToken;
 import com.github.javaparser.Range;
 import com.github.javaparser.TokenRange;
+import com.github.javaparser.ast.DataKey;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.stmt.BlockStmt;
@@ -18,6 +19,9 @@ import static preprocessor.Graph.Edge;
 
 public class MethodToGraphConverter {
 
+    public static final DataKey<Integer> VERTEX_ID = new DataKey<>() {
+    };
+
     public static Graph convert(MethodDeclaration method) {
         String name = NodeLabelUtil.splitToSubtokens(method.getNameAsString());
         method.getName().setParentNode(null); // method name prediction なので、メソッド名はデータから除く
@@ -30,6 +34,10 @@ public class MethodToGraphConverter {
             addRawTokenElements(methodBody, vertices, edges);
         });
 
+        var dfv = new DataFlowVisitor(vertices);
+        var dfEdges = dfv.computeDataFlowEdges(method);
+        edges.addAll(dfEdges);
+
         vertices.sort(Comparator.comparing(
                 v -> v.getRange() == null ? null : v.getRange().begin,
                 Comparator.nullsLast(Comparator.naturalOrder())));  // TODO thenComparing ASTルートからDFS順 今のところ naturalOrder で達成されている
@@ -39,6 +47,8 @@ public class MethodToGraphConverter {
     private static Pair<List<Vertex>, List<Edge>> extractASTElements(MethodDeclaration method) {
         List<Vertex> vertices = new ArrayList<>();
         List<Edge> edges = new ArrayList<>();
+
+        int vertexId = 0;
 
         // (対象ノード, 親ノードの Vertex)
         Stack<Pair<Node, Vertex>> st = new Stack<>();
@@ -67,7 +77,9 @@ public class MethodToGraphConverter {
                 range = node.getTokenRange().flatMap(TokenRange::toRange).orElse(null);
                 type = VertexType.SYNTAX_NODE;
             }
-            Vertex vertex = new Vertex(label, range, type);
+            int id = vertexId++;
+            node.setData(VERTEX_ID, id);
+            Vertex vertex = new Vertex(id, label, range, type);
             vertices.add(vertex);
 
             // AST の親子関係に辺を張る
@@ -107,11 +119,13 @@ public class MethodToGraphConverter {
         // 全トークンの Vertex オブジェクトを作り、ソースコード中の出現順に並べる
         List<Vertex> tokenSequence = new ArrayList<>();
         List<Vertex> addedVertices = new ArrayList<>();
+        int vertexId = vertices.stream().max(Comparator.comparing(Vertex::getId)).get().getId();
         for (JavaToken rawToken : rawTokens) {
             Range range = rawToken.getRange().get();
             Vertex vertex;
             if (astTokens.get(range) == null) {
-                vertex = new Vertex(rawToken.getText(), rawToken.getRange().orElse(null), VertexType.SYNTAX_TOKEN);
+                int id = vertexId++;
+                vertex = new Vertex(id, rawToken.getText(), rawToken.getRange().orElse(null), VertexType.SYNTAX_TOKEN);
                 vertices.add(vertex);
                 addedVertices.add(vertex);
             } else {
