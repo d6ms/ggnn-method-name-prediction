@@ -1,15 +1,13 @@
 package preprocessor;
 
 import com.github.javaparser.ast.Node;
-import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.*;
-import com.github.javaparser.ast.stmt.WhileStmt;
+import com.github.javaparser.ast.stmt.*;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import javassist.expr.MethodCall;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
@@ -62,20 +60,23 @@ public class DataFlowVisitor extends VoidVisitorAdapter<Object> {
     public void visit(MethodDeclaration n, Object arg) {
         varToLastUse.push(new HashMap<>());
         varToLastWrite.push(new HashMap<>());
-        super.visit(n, arg);
-        for (Edge edge : edges) {
-//            System.out.println(edge.getSrc().getLabel()+ " at " + edge.getSrc().getRange()+ " to " + edge.getDst().getLabel() + " at " + edge.getDst().getRange()+" as " + edge.getType());
+        for (var p : n.getParameters()) {
+            p.accept(this, arg);
         }
-//        System.out.println("end");
-//        System.exit(0);
+        if (!n.isStatic()) {
+            recordVariableDeclaration(n, "this", n, false);
+        }
+        n.getBody().ifPresent(b -> b.accept(this, arg));
     }
 
     private void recordVariableDeclaration(Node declarationNode, String varName) {
         recordVariableDeclaration(declarationNode, varName, null);
     }
+
     private void recordVariableDeclaration(Node declarationNode, String varName, Node initializer) {
         recordVariableDeclaration(declarationNode, varName, initializer, true);
     }
+
     private void recordVariableDeclaration(Node declarationNode, String varName, Node initializer, boolean isComputed) {
         if (varName == null) {
             return;
@@ -94,6 +95,7 @@ public class DataFlowVisitor extends VoidVisitorAdapter<Object> {
     private void recordVariableComputation(Node assignedVariable, Node assignedExpression) {
         recordVariableComputation(assignedVariable, assignedExpression, Collections.emptyList());
     }
+
     private void recordVariableComputation(Node assignedVariable, Node assignedExpression, List<Pair<Node, String>> indexers) {
         var usedVars = getAllKnownVariablesInSyntaxTree(assignedExpression);
         usedVars.addAll(indexers);
@@ -106,6 +108,7 @@ public class DataFlowVisitor extends VoidVisitorAdapter<Object> {
     private void recordFlow(Map<String, Set<Node>> context, Node useNode, String varName, EdgeType edgeType) {
         recordFlow(context, useNode, varName, edgeType, true);
     }
+
     private void recordFlow(Map<String, Set<Node>> context, Node useNode, String varName, EdgeType edgeType, boolean replaceContextInfo) {
         for (var lastUse : context.getOrDefault(varName, Collections.emptySet())) {
             edges.add(new Edge(toV(useNode), toV(lastUse), edgeType));
@@ -129,10 +132,6 @@ public class DataFlowVisitor extends VoidVisitorAdapter<Object> {
                 continue;
             }
 
-            // TODO descendant が 変数名 を示すもの以外であれば continue;
-//            var descendantId = descendant as IdentifierNameSyntax;
-//            if (descendantId == null) continue;
-            // TODO これだとメソッド名とかも入らない？
             if (descendant.getClass().isAssignableFrom(SimpleName.class)) {
                 var idName = ((SimpleName) descendant).getIdentifier();
                 if (isVariableLike((SimpleName) descendant) && varToLastUse.peek().containsKey(idName)) {
@@ -165,6 +164,7 @@ public class DataFlowVisitor extends VoidVisitorAdapter<Object> {
     private void handleParallelBlocks(Runnable[] parallelBlockExecutors) {
         handleParallelBlocks(parallelBlockExecutors, false);
     }
+
     private void handleParallelBlocks(Runnable[] parallelBlockExecutors, boolean maySkip) {
         var newLastUses = new ArrayList<Map<String, Set<Node>>>();
         var newLastWrites = new ArrayList<Map<String, Set<Node>>>();
@@ -199,12 +199,123 @@ public class DataFlowVisitor extends VoidVisitorAdapter<Object> {
         }
     }
 
+    // =====================================================
+
+    @Override
+    public void visit(BlockStmt n, Object arg) {
+        handleParallelBlocks(new Runnable[]{() -> {
+            for (var statement : n.getStatements()) {
+                statement.accept(this, arg);
+            }
+        }});
+    }
+
+    @Override
+    public void visit(IfStmt n, Object arg) {
+        n.getCondition().accept(this, arg);
+        handleParallelBlocks(new Runnable[]{
+                () -> n.getThenStmt().accept(this, arg),
+                () -> n.getElseStmt().ifPresent(e -> e.accept(this, arg))
+        });
+    }
+
+    @Override
+    public void visit(SwitchStmt n, Object arg) {
+        n.getSelector().accept(this, arg);
+        var runnables = new ArrayList<Runnable>();
+        for (var e : n.getEntries()) {
+            runnables.add(() -> {
+                for (var s : e.getStatements()) {
+                    s.accept(this, arg);
+                }
+            });
+        }
+        handleParallelBlocks(runnables.toArray(new Runnable[0]));
+    }
+
+    @Override
+    public void visit(ForStmt n, Object arg) {
+        for (var i : n.getInitialization()) {
+            i.accept(this, arg);
+        }
+        n.getCompare().ifPresent(c -> c.accept(this, arg));
+        handleParallelBlocks(new Runnable[]{() -> {
+            n.getBody().accept(this, arg);
+            for (var u : n.getUpdate()) {
+                u.accept(this, arg);
+            }
+            n.getCompare().ifPresent(c -> c.accept(this, arg));
+            n.getBody().accept(this, arg);
+            for (var u : n.getUpdate()) {
+                u.accept(this, arg);
+            }
+        }}, true);
+    }
+
+    @Override
+    public void visit(ForEachStmt n, Object arg) {
+        n.getIterable().accept(this, arg);
+        handleParallelBlocks(new Runnable[]{() -> {
+            recordVariableDeclaration(n, n.getVariableDeclarator().getName().getIdentifier(), n.getIterable());
+            n.getBody().accept(this, arg);
+            n.getIterable().accept(this, arg);
+            n.getBody().accept(this, arg);
+        }});
+    }
+
+    @Override
+    public void visit(WhileStmt n, Object arg) {
+        n.getCondition().accept(this, arg);
+        handleParallelBlocks(new Runnable[]{() -> {
+            n.getBody().accept(this, arg);
+            n.getCondition().accept(this, arg);
+            n.getBody().accept(this, arg);
+        }}, true);
+    }
+
+    @Override
+    public void visit(DoStmt n, Object arg) {
+        n.getBody().accept(this, arg);
+        n.getCondition().accept(this, arg);
+        handleParallelBlocks(new Runnable[]{() -> {
+            n.getBody().accept(this, arg);
+            n.getCondition().accept(this, arg);
+            n.getBody().accept(this, arg);
+        }});
+    }
+
+    @Override
+    public void visit(TryStmt n, Object arg) {
+        for (var res : n.getResources()) {
+            res.accept(this, arg);
+        }
+
+        var runnables = new ArrayList<Runnable>();
+        runnables.add(() -> n.getTryBlock().accept(this, arg));
+        for (var ctch : n.getCatchClauses()) {
+            runnables.add(() -> {
+                var param = ctch.getParameter();
+                recordVariableDeclaration(param, param.getName().getIdentifier(), param, false);
+                ctch.getBody().accept(this, arg);
+            });
+        }
+        handleParallelBlocks(runnables.toArray(new Runnable[0]));
+        n.getFinallyBlock().ifPresent(f -> f.accept(this, arg));
+    }
+
+    @Override
+    public void visit(Parameter n, Object arg) {
+        var name = n.getName().getIdentifier();
+        varToLastWrite.peek().put(name, Sets.newHashSet(n));
+        varToLastUse.peek().put(name, Sets.newHashSet(n));
+    }
+
     @Override
     public void visit(VariableDeclarator n, Object arg) {
-        // TODO int x = 3, y = 2; のケース？
+        // TODO int x = 3, y = 2; のケースに対応できていない
         String varName = n.getName().getIdentifier();
         Expression initializer = n.getInitializer().orElse(null);
-        recordVariableDeclaration(n, varName, initializer);  // TODO edge の始点は VariableDeclarator ではなくない？
+        recordVariableDeclaration(n, varName, initializer);
     }
 
     @Override
@@ -227,13 +338,23 @@ public class DataFlowVisitor extends VoidVisitorAdapter<Object> {
     }
 
     @Override
-    public void visit(WhileStmt n, Object arg) {
-        n.getCondition().accept(this, arg);
-        handleParallelBlocks(new Runnable[] { () -> {
-            n.getBody().accept(this, arg);
-            n.getCondition().accept(this, arg);
-            n.getBody().accept(this, arg);
-        }}, true);
+    public void visit(UnaryExpr n, Object arg) {
+        if (n.isPostfix()) {
+            super.visit(n, arg);
+        }
+        if (n.getOperator() == UnaryExpr.Operator.POSTFIX_DECREMENT
+                || n.getOperator() == UnaryExpr.Operator.POSTFIX_INCREMENT
+                || n.getOperator() == UnaryExpr.Operator.PREFIX_DECREMENT
+                || n.getOperator() == UnaryExpr.Operator.PREFIX_INCREMENT) {
+            var vars = getAllKnownVariablesInSyntaxTree(n.getExpression());
+            if (!vars.isEmpty()) {
+                var writtenVar = vars.get(0);
+                recordFlow(varToLastWrite.peek(), writtenVar.getKey(), writtenVar.getValue(), EdgeType.LAST_WRITE);
+            }
+        }
+        if (n.isPrefix()) {
+            super.visit(n, arg);
+        }
     }
 
     @Override
@@ -246,5 +367,17 @@ public class DataFlowVisitor extends VoidVisitorAdapter<Object> {
             }
         }
     }
+
+    @Override
+    public void visit(FieldAccessExpr n, Object arg) {
+        if (n.getScope().getClass().isAssignableFrom(NameExpr.class)
+                && ((NameExpr) n.getScope()).getNameAsString().equals("this")
+                || n.getScope().getClass().isAssignableFrom(ThisExpr.class)) {
+            n.getName().accept(this, arg);
+        } else {
+            n.getScope().accept(this, arg);
+        }
+    }
+
 }
 
