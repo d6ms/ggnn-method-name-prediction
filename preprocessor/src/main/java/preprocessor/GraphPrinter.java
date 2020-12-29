@@ -9,7 +9,7 @@ public class GraphPrinter {
 
     public static String print(Graph graph) {
         StringJoiner joiner = new StringJoiner("\n");
-        joiner.add(graph.getName() + " " + graph.getVertices().size() + " " + graph.getEdges().size());
+        joiner.add(graph.getMethodName() + " " + graph.getVertices().size() + " " + graph.getEdges().size());
 
         String labels = graph.getVertices().stream()
                 .map(Graph.Vertex::getLabel)
@@ -36,7 +36,7 @@ public class GraphPrinter {
         }
 
         StringJoiner joiner = new StringJoiner("\n");
-        joiner.add(graph.getName() + " " + graph.getVertices().size() + " " + graph.getEdges().size());
+        joiner.add(graph.getMethodName() + " " + graph.getVertices().size() + " " + graph.getEdges().size());
 
         String labels = graph.getVertices().stream()
                 .map(Graph.Vertex::getLabel)

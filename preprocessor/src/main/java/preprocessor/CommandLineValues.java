@@ -36,6 +36,9 @@ public class CommandLineValues {
     @Option(name = "--exclude_boilerplates", required = false)
     public boolean excludeBoilerplates = false;
 
+    @Option(name = "--output_in_package", required = false)
+    public boolean outputInPackage = false;
+
     public CommandLineValues(String... args) throws CmdLineException {
         CmdLineParser parser = new CmdLineParser(this);
         try {

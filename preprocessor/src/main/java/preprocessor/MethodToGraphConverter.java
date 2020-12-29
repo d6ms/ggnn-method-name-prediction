@@ -22,7 +22,7 @@ public class MethodToGraphConverter {
     public static final DataKey<Integer> VERTEX_ID = new DataKey<>() {
     };
 
-    public static Graph convert(MethodDeclaration method) {
+    public static Graph convert(MethodDeclaration method, String packageName) {
         String name = NodeLabelUtil.splitToSubtokens(method.getNameAsString());
         method.getName().setParentNode(null); // method name prediction なので、メソッド名はデータから除く
 
@@ -41,7 +41,7 @@ public class MethodToGraphConverter {
         vertices.sort(Comparator.comparing(
                 v -> v.getRange() == null ? null : v.getRange().begin,
                 Comparator.nullsLast(Comparator.naturalOrder())));  // TODO thenComparing ASTルートからDFS順 今のところ naturalOrder で達成されている
-        return new Graph(name, vertices, edges);
+        return new Graph(packageName, name, vertices, edges);
     }
 
     private static Pair<List<Vertex>, List<Edge>> extractASTElements(MethodDeclaration method) {

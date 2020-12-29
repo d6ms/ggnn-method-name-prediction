@@ -4,6 +4,7 @@ import com.github.javaparser.*;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.DataKey;
 import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 
 import java.io.IOException;
@@ -36,12 +37,15 @@ public class FileExtractionTask implements Callable<List<Graph>> {
     @Override
     public List<Graph> call() throws Exception {
         CompilationUnit cu = StaticJavaParser.parse(path);
-        return cu.findAll(MethodDeclaration.class).stream()
-                .filter(m -> m.getBody().isPresent())
-                .filter(m -> !(cfg.excludeBoilerplates && isBoilerplate(m)))
-                .map(MethodToGraphConverter::convert)
-                .filter(g -> g.getNumVertices() <= cfg.maxVertices)
-                .collect(Collectors.toList());
+        return cu.findFirst(PackageDeclaration.class).map(pd -> {
+            String packageName = pd.getNameAsString();
+            return cu.findAll(MethodDeclaration.class).stream()
+                    .filter(m -> m.getBody().isPresent())
+                    .filter(m -> !(cfg.excludeBoilerplates && isBoilerplate(m)))
+                    .map(m -> MethodToGraphConverter.convert(m, packageName))
+                    .filter(g -> g.getNumVertices() <= cfg.maxVertices)
+                    .collect(Collectors.toList());
+        }).orElse(Collections.emptyList());
     }
 
     private boolean isBoilerplate(MethodDeclaration m) {

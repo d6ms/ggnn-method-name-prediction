@@ -7,7 +7,9 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.*;
 import java.util.stream.Stream;
 
@@ -35,16 +37,53 @@ public class ProjectExtractionTask implements Runnable {
         this.logger = logger;
     }
 
+    private class GraphWriter implements AutoCloseable {
+
+        private FileWriter fw;
+        private Map<String, Integer> indices = new HashMap<>();
+
+        public void write(String content, String packageName) throws IOException {
+            if (cfg.outputInPackage) {
+                int index = indices.getOrDefault(packageName, 0);
+                index++;
+
+                Path graphFile = outPath.resolve(packageName).resolve(index + ".txt");
+                if (!graphFile.getParent().toFile().exists()) {
+                    graphFile.getParent().toFile().mkdirs();
+                }
+
+                try (var lfw = new FileWriter(graphFile.toFile())) {
+                    lfw.write(content);
+                }
+
+                indices.put(packageName, index);
+            } else {
+                if (fw == null) {
+                    String projectName = projectDir.getName();
+                    File graphFile = outPath.resolve(projectName + ".graph").toFile();
+                    fw = new FileWriter(graphFile);
+                }
+                fw.write(content + "\n\n");
+            }
+        }
+
+        @Override
+        public void close() throws Exception {
+            if (fw != null) {
+                fw.close();
+            }
+        }
+    }
+
     @Override
     public void run() {
         String projectName = projectDir.getName();
-        File graphFile = outPath.resolve(projectName + ".graph").toFile();
         File vocabFile = outPath.resolve(projectName + ".vocab").toFile();
         File targetFile = outPath.resolve(projectName + ".target").toFile();
 
         WordHistogram vocabHist = new WordHistogram();
         WordHistogram targetHist = new WordHistogram();
-        try (FileWriter gw = new FileWriter(graphFile);
+        try (GraphWriter gw = new GraphWriter();
              FileWriter vw = new FileWriter(vocabFile);
              FileWriter tw = new FileWriter(targetFile)) {
             Files.walk(projectDir.toPath())
@@ -65,9 +104,9 @@ public class ProjectExtractionTask implements Runnable {
                                 .map(Graph.Vertex::getLabel)
                                 .flatMap(s -> Stream.of(s.split("\\|")))
                                 .forEach(vocabHist::count);
-                        targetHist.count(g.getName());
+                        targetHist.count(g.getMethodName());
                         try {
-                            gw.write(GraphPrinter.print(g) + "\n\n");
+                            gw.write(GraphPrinter.print(g), g.getPackageName());
                         } catch (IOException e) {
                             throw new UncheckedIOException(e);
                         }

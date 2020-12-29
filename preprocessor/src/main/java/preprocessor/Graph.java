@@ -6,12 +6,14 @@ import java.util.*;
 
 public class Graph {
 
-    private final String name;
+    private final String packageName;
+    private final String methodName;
     private final List<Vertex> vertices;
     private final List<Edge> edges;
 
-    public Graph(String name, List<Vertex> vertices, List<Edge> edges) {
-        this.name = name;
+    public Graph(String packageName, String methodName, List<Vertex> vertices, List<Edge> edges) {
+        this.packageName = packageName;
+        this.methodName = methodName;
         this.vertices = vertices;
         this.edges = edges;
         for (int i = 0; i < vertices.size(); i++) {
@@ -31,8 +33,12 @@ public class Graph {
         return edges;
     }
 
-    public String getName() {
-        return name;
+    public String getMethodName() {
+        return methodName;
+    }
+
+    public String getPackageName() {
+        return packageName;
     }
 
     public static class Vertex {
